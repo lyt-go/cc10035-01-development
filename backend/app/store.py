@@ -14,6 +14,9 @@ class Store:
         self._tables: dict[str, list[dict[str, Any]]] = {
             name: [dict(row) for row in rows] for name, rows in SEED_ROWS.items()
         }
+        # 试投回单工作流产生的运行期数据：回单本身与实际路由投递记录。
+        self._tables.setdefault("trial_receipt", [])
+        self._tables.setdefault("trial_delivery", [])
 
     def module_names(self) -> list[str]:
         return sorted(self._tables)
@@ -28,8 +31,12 @@ class Store:
         return None
 
     def overview(self) -> dict[str, object]:
+        # 仅业务模块进入运营概览；trial_delivery 是试投回单的运行期投递记录。
+        internal_tables = {"trial_delivery"}
         modules: list[dict[str, object]] = []
         for name in self.module_names():
+            if name in internal_tables:
+                continue
             rows = self.rows(name)
             modules.append({
                 "name": name,

@@ -28,6 +28,18 @@ class MsgDecodeService(BaseModuleService):
     ACTION_RULES = {"提交验证": "待验证", "启用规则": "已启用", "停用规则": "已停用"}
     NEGATIVE_ACTIONS = ["停用规则"]
 
+    def run_action(self, entry_id: int, action: str) -> tuple[dict[str, Any] | None, str]:
+        entry, message = super().run_action(entry_id, action)
+        if entry is not None and action == "停用规则":
+            # 停用与尚未发送的试投冲突：相关回单转「需要重审」，保留选中帧。
+            from app.services.trial_receipt import trial_receipt_service
+
+            affected = trial_receipt_service.on_rule_disabled(entry.get("规则编号", ""))
+            if affected:
+                ids = "、".join(item["回单编号"] for item in affected)
+                message = f"{message}，并与试投回单 {ids} 发生冲突，已转需要重审"
+        return entry, message
+
     def parse_message(self, raw_hex: str, protocol_type: str) -> dict[str, Any]:
         """解析原始报文：根据协议类型查找已启用解码规则并解析hex报文。
 
